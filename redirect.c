@@ -1,5 +1,11 @@
 #include "redirect.h"
 #include <string.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 
 int get_rdrct(char* inpt_tkns[], int tkn_num, int start_index)
 {
@@ -42,4 +48,29 @@ int rdrct_type(char* inpt_tkns [], int index)
    }
 
 
+}
+
+void handle_rdrct(char* file_name, int rdrct_t)
+{
+    int stdi_rdrct; 
+    if(rdrct_t == 0)
+    {
+        close(STDIN_FILENO);
+        stdi_rdrct =  open(file_name, O_RDONLY,S_IRWXU);
+        if( stdi_rdrct == -1 )
+        {
+            printf("yash: %s: No such file or directory\n",file_name);
+            exit(0);
+        }
+
+       } else if(rdrct_t == 1)
+       {
+           close(STDOUT_FILENO); 
+           open(file_name, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+       } else{
+           //Redirect standard error
+           close(STDERR_FILENO);
+           open(file_name, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+       }
+ 
 }
