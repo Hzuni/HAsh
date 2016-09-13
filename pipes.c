@@ -54,4 +54,21 @@ void handle_pipe(char* largs[], char* rargs[])
     }
 
 }
+void build_pipe_args(char* pipel_args[] ,char* piper_args[],int svd_tkn_indx, int pipe_i,int tkn_num, char* inpt_tkns[])
+{
+           int i;
+           for(i = 0; i < (pipe_i - svd_tkn_indx); i++)
+           {
+               pipel_args[i] = inpt_tkns[svd_tkn_indx + i];
+           }
+           pipel_args[i] = NULL;
+
+           
+           for(i = 0; i < (tkn_num - (pipe_i +1)); i++)
+           {
+               piper_args[i] = inpt_tkns[(pipe_i + 1) + i];
+           }
+           piper_args[i] = NULL;
+}
+
 

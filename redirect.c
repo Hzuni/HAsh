@@ -49,6 +49,15 @@ int rdrct_type(char* inpt_tkns [], int index)
 
 
 }
+void build_rdrct_args(int rdrct_i, char* args[], char* inpt_tkns[], int svd_tkn_indx)
+{
+   int i;
+   for(i = 0; i < (rdrct_i - svd_tkn_indx ); i++)
+   {
+       args[i] = inpt_tkns[ svd_tkn_indx + i ];
+   }
+   args[( rdrct_i - svd_tkn_indx ) + 1] = NULL;
+}
 
 void handle_rdrct(char* file_name, int rdrct_t)
 {
