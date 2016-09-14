@@ -11,7 +11,6 @@
 #include <errno.h>
 #include "jobs.h"
 
-int yash_pid;
 int status, pid_ch1, pid_ch2, pid;
 int pipefd[2];
 int rdrct_i, rdrct_t, pipe_i;
@@ -19,7 +18,6 @@ char* pipel_args[2000];
 char* piper_args[2000];
 char* args[2000];
 char* inpt_tkns[2000];
-
 /*Job Control Variables*/
 int job_status[2000]; // 0 means stopped and 1 means running 2 means done 3 means dead
 char* job_commands[2000];  
@@ -43,20 +41,28 @@ static void handle_sigchld(int signo)
 {
     int saved_errno = errno;
     int sgc_pid; //pid of the child of Sigchilded
-    while( sgc_pid = waitpid(-1,0, WNOHANG) > 0) 
+    while( (sgc_pid = waitpid(-1,0, WNOHANG)) > 0) 
     {
-       /*Delete the background process from the Job Table*/ 
-       int pgid = getpgid(sgc_pid);
-       int job_pg_index;
+       /*Delete the backgroundeprocess from the Job Table*/ 
+       int pgid = sgc_pid;
+
+       int job_pg_index = -1; 
        for(int i = 0; i < job_cnt; i++)
        {
            if(job_pgroup[i] == pgid)
            {
               job_pg_index = i; 
            }
-       }  
-      job_status[job_pg_index] = 2;
-      current_job = get_active_job(job_cnt,job_status);
+       } 
+       if(job_pg_index == -1)
+       {
+           //printf("FINISHED JOB COULDN'T BE FOUND %d %d", pgid,sgc_pid);
+           continue;
+       } else
+       {
+            job_status[job_pg_index] = 2;
+            current_job = get_active_job(job_cnt,job_status);
+       }
      } 
      errno = saved_errno;
 }
@@ -117,6 +123,7 @@ int main(int argc, const char* argv[])
        inpt_tkns[tkn_num] = NULL;
        
        /*Build args and vars for redirection operation*/
+
        rdrct_i = get_rdrct(inpt_tkns,tkn_num,tkn_indx);
        svd_tkn_indx = tkn_indx;
        pipe_i = find_pipes(inpt_tkns,tkn_num,tkn_indx);
@@ -142,44 +149,7 @@ int main(int argc, const char* argv[])
 
        if(strcmp(inpt_tkns[0],"jobs") == 0)
        {
-           if(current_job == -1)
-           {
-               continue;
-           }
-           //int active_jb
-           for(i = 0; i < job_cnt; i +=1)
-           {
-               if(job_status[i] == 3)
-               {
-                   continue;
-               }else
-               {
-                   printf("[%d]", (i + 1));
-                   if(i == current_job)
-                   {
-                        printf(" + ");
-                   } else
-                   {
-                       printf(" - ");
-                   }
-                   if(job_status[i] == 0)
-                   {
-                       printf("Stopped\t");
-                   } else if(job_status[i] == 1)
-                   {
-                      printf("Running\t");
-                   } else if(job_status[i] == 2)
-                   {
-                       job_status[i] = 3;
-                       printf("Done");
-                   } else
-                   {
-                       continue;
-                   }
-
-               }
-               printf("%s\n",job_commands[i]);
-           }
+           printJobs(job_cnt,job_status,current_job,job_commands);
            continue;
        }
 
@@ -206,16 +176,18 @@ int main(int argc, const char* argv[])
            {
                printf("%d stopped by signal %d\n", pid,WSTOPSIG(status));
                job_status[(job_cnt - 1)] = 0;
-           } 
+           }
+           continue;
       }
       if(strcmp(inpt_tkns[0],"bg") == 0)
       {
           job_status[current_job] = 1;
           kill(job_pgroup[(job_cnt - 1)], SIGCONT);
+          continue;
       }
 
-      if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
-          printf("signal(SIGTSTP) error");
+      //if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
+          //printf("signal(SIGTSTP) error");
                     
 
       /*Creating a new process for the entered line*/
@@ -231,10 +203,10 @@ int main(int argc, const char* argv[])
                {
                    printf("Child 2 pid = %d\n",pid_ch2);
                    if (signal(SIGINT, sig_int) == SIG_ERR)
-                        printf("signal(SIGINT) error");
+                        //printf("signal(SIGINT) error");
 
                    if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
-                        printf("signal(SIGTSTP) error");
+                        //printf("signal(SIGTSTP) error");
                    
                    close(pipefd[0]); //close the pipe in the parent
                    close(pipefd[1]);
@@ -248,7 +220,6 @@ int main(int argc, const char* argv[])
                            perror("waitpid");
 	                       break;
 	                   }
-	
                        if (WIFEXITED(status)) 
                        {
                            printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
@@ -267,12 +238,13 @@ int main(int argc, const char* argv[])
                                job_status[job_cnt] = 0;
                                job_commands[job_cnt] = unmod_inpt_str;
                                job_pgroup[job_cnt] = pid_ch1;
+                               current_job = job_cnt; 
                                job_cnt += 1;
                                break;
                            }
                        } 
                                           
-                   }
+                     }
                }
                else if (pid_ch2 == 0)
                {
@@ -301,17 +273,17 @@ int main(int argc, const char* argv[])
                if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
                    printf("signal(SIGTSTP) error");
 
-	           waitpid(pid_ch1, &status, WUNTRACED);
+	           waitpid(pid_ch1, &status, 0);
                 
                if (WIFEXITED(status)) 
                {
-                   printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
+                   //printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
                } else if (WIFSIGNALED(status)) 
                {
-                   printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
+                   //printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
                } else if (WIFSTOPPED(status))
                {
-                   printf("%d stopped by signal BITCH!%d\n", pid,WSTOPSIG(status));
+                   //printf("%d stopped by signal!%d\n", pid,WSTOPSIG(status));
                    job_status[job_cnt] = 0;
                    job_commands[job_cnt] = unmod_inpt_str;
                    job_pgroup[job_cnt] = pid_ch1;
@@ -328,7 +300,13 @@ int main(int argc, const char* argv[])
             {
                 close(pipefd[0]);
                 dup2(pipefd[1],STDOUT_FILENO);
-                execvp(pipel_args[0], pipel_args);
+                if((rdrct_i != -1) && rdrct_i < pipe_i)
+                {
+                    handle_rdrct(file_name,rdrct_t);
+                    execvp(args[0], args);
+                } else {
+                    execvp(pipel_args[0], pipel_args);
+                }
             }
             if(rdrct_i != -1)
             {

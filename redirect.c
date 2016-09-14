@@ -61,9 +61,9 @@ void build_rdrct_args(int rdrct_i, char* args[], char* inpt_tkns[], int svd_tkn_
 
 void handle_rdrct(char* file_name, int rdrct_t)
 {
-    int stdi_rdrct; 
-    if(rdrct_t == 0)
-    {
+        int stdi_rdrct; 
+        if(rdrct_t == 0)
+        {
         close(STDIN_FILENO);
         stdi_rdrct =  open(file_name, O_RDONLY,S_IRWXU);
         if( stdi_rdrct == -1 )
