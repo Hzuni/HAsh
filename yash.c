@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <errno.h>
+#include "jobs.h"
 
 int yash_pid;
 int status, pid_ch1, pid_ch2, pid;
@@ -20,23 +21,26 @@ char* args[2000];
 char* inpt_tkns[2000];
 
 /*Job Control Variables*/
-int job_status[2000]; // 0 means stopped and 1 means running
+int job_status[2000]; // 0 means stopped and 1 means running 2 means done 3 means dead
 char* job_commands[2000];  
 int job_cnt = 0;
 int job_pgroup[2000];
+char* doneJobs;
+int current_job = -1;
+
 
 static void sig_int(int signo)
 {
     printf("Sending SIGINT to group:%d\n",pid_ch1);
     kill(-pid_ch1,SIGINT);
 }
-static void sig_tstp(int signo) {
+static void sig_tstp(int signo) 
+{
     printf("Sending SIGTSTP to group:%d\n",pid_ch1);
     kill(-pid_ch1,SIGTSTP);
 }
 static void handle_sigchld(int signo)
 {
-    printf("Caught here");
     int saved_errno = errno;
     int sgc_pid; //pid of the child of Sigchilded
     while( sgc_pid = waitpid(-1,0, WNOHANG) > 0) 
@@ -51,29 +55,20 @@ static void handle_sigchld(int signo)
               job_pg_index = i; 
            }
        }  
-       /*Add code for finished jobs*/
-      for(int i = job_pg_index;(job_pg_index + 1) < job_cnt; i++)
-      {
-          job_status[i] = job_status[i+1];
-          job_commands[i] = job_commands[i+1];
-          job_pgroup[i] = job_pgroup[i+1];
-      }
-      job_cnt-=1;
+      job_status[job_pg_index] = 2;
+      current_job = get_active_job(job_cnt,job_status);
      } 
      errno = saved_errno;
 }
 static void yash_sig_int(int signo){}
-
-
 static void yash_sig_tstp(int signo){}
    
 
 
 int main(int argc, const char* argv[])
 {
-   
-   
     struct sigaction sa;
+    char* unmod_inpt_str;
     sa.sa_handler = &handle_sigchld;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
@@ -83,9 +78,6 @@ int main(int argc, const char* argv[])
         exit(1);
     }
 
-    signal(SIGINT,yash_sig_int);
-    signal(SIGTSTP,yash_sig_tstp);
-        
     while(1)
     {
        signal(SIGINT,yash_sig_int);
@@ -97,13 +89,13 @@ int main(int argc, const char* argv[])
 
        int i;
        char* inpt_str = malloc(2000);
-       char* unmod_inpt_str;
-       
+              
        char* tkn_ptr;   
        int tkn_num = 0; 
       
-       printf("#");
-       if( fgets(inpt_str,2000,stdin) == NULL)
+       printf("# ");
+       
+       if(fgets(inpt_str,2000,stdin)== NULL)
        {
            exit(0);
        }
@@ -115,6 +107,7 @@ int main(int argc, const char* argv[])
            continue;
        } 
        
+
        while(tkn_ptr != NULL)
        {
            inpt_tkns[tkn_num] = tkn_ptr;
@@ -149,24 +142,42 @@ int main(int argc, const char* argv[])
 
        if(strcmp(inpt_tkns[0],"jobs") == 0)
        {
+           if(current_job == -1)
+           {
+               continue;
+           }
+           //int active_jb
            for(i = 0; i < job_cnt; i +=1)
            {
-               printf("[%d]", (i + 1));
-               if((i+1) == job_cnt)
+               if(job_status[i] == 3)
                {
-                    printf(" + ");
-               } else
+                   continue;
+               }else
                {
-                   printf(" - ");
-               }
-               if(job_status[i] == 0)
-               {
-                   printf("Stopped\t");
-               } else
-               {
-                  printf("Running\t");
-               }
+                   printf("[%d]", (i + 1));
+                   if(i == current_job)
+                   {
+                        printf(" + ");
+                   } else
+                   {
+                       printf(" - ");
+                   }
+                   if(job_status[i] == 0)
+                   {
+                       printf("Stopped\t");
+                   } else if(job_status[i] == 1)
+                   {
+                      printf("Running\t");
+                   } else if(job_status[i] == 2)
+                   {
+                       job_status[i] = 3;
+                       printf("Done");
+                   } else
+                   {
+                       continue;
+                   }
 
+               }
                printf("%s\n",job_commands[i]);
            }
            continue;
@@ -174,8 +185,8 @@ int main(int argc, const char* argv[])
 
       if(strcmp(inpt_tkns[0],"fg") == 0)
       {
-          job_status[job_cnt -1] = 1;
-          kill(job_pgroup[(job_cnt - 1)], SIGCONT);
+          job_status[current_job] = 1;
+          kill(job_pgroup[current_job], SIGCONT);
           if (signal(SIGINT, sig_int) == SIG_ERR)
                 printf("signal(SIGINT) error");
 
@@ -197,6 +208,12 @@ int main(int argc, const char* argv[])
                job_status[(job_cnt - 1)] = 0;
            } 
       }
+      if(strcmp(inpt_tkns[0],"bg") == 0)
+      {
+          job_status[current_job] = 1;
+          kill(job_pgroup[(job_cnt - 1)], SIGCONT);
+      }
+
       if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
           printf("signal(SIGTSTP) error");
                     
@@ -218,6 +235,7 @@ int main(int argc, const char* argv[])
 
                    if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
                         printf("signal(SIGTSTP) error");
+                   
                    close(pipefd[0]); //close the pipe in the parent
                    close(pipefd[1]);
                    int count = 0; 
@@ -269,8 +287,9 @@ int main(int argc, const char* argv[])
            {
                /*Puts bg process in process table*/
                job_status[job_cnt] = 1;
-               job_commands[job_cnt] = unmod_inpt_str;
+               job_commands[job_cnt] = strdup(unmod_inpt_str);
                job_pgroup[job_cnt] = pid_ch1;
+               current_job = job_cnt;
                job_cnt += 1;
                continue;
            }
@@ -282,8 +301,8 @@ int main(int argc, const char* argv[])
                if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
                    printf("signal(SIGTSTP) error");
 
-	           pid = waitpid(-1, &status, WUNTRACED);
-               
+	           waitpid(pid_ch1, &status, WUNTRACED);
+                
                if (WIFEXITED(status)) 
                {
                    printf("child %d exited, status=%d\n", pid, WEXITSTATUS(status));
@@ -292,43 +311,39 @@ int main(int argc, const char* argv[])
                    printf("child %d killed by signal %d\n", pid, WTERMSIG(status));
                } else if (WIFSTOPPED(status))
                {
-                   printf("%d stopped by signal %d\n", pid,WSTOPSIG(status));
+                   printf("%d stopped by signal BITCH!%d\n", pid,WSTOPSIG(status));
                    job_status[job_cnt] = 0;
                    job_commands[job_cnt] = unmod_inpt_str;
                    job_pgroup[job_cnt] = pid_ch1;
+                   current_job = job_cnt;
                    job_cnt += 1;
-               } 
+               }
                
           }
        } else
        {
             //Child 1 process
-            setsid();
+            setpgid(getpid(),getpid());
             if(pipe_i != -1)
             {
                 close(pipefd[0]);
                 dup2(pipefd[1],STDOUT_FILENO);
                 execvp(pipel_args[0], pipel_args);
-            } else
-            {
-                if(rdrct_i != -1)
-                {
-                    handle_rdrct(file_name, rdrct_t);
-                    execvp(args[0], args);
-                }   else if(strcmp(inpt_tkns[tkn_num - 1],"&") == 0)
-                {
-                    inpt_tkns[tkn_num - 1] = NULL;
-                    execvp(inpt_tkns[0],inpt_tkns);
-
-                
-                }   else
-                {
-                    execvp(inpt_tkns[0],inpt_tkns);
-                }
             }
+            if(rdrct_i != -1)
+            {
+                handle_rdrct(file_name, rdrct_t);
+                execvp(args[0], args);
+            }
+            if(strcmp(inpt_tkns[tkn_num - 1],"&") == 0)
+            {
+                inpt_tkns[tkn_num - 1] = NULL;
+                execvp(inpt_tkns[0],inpt_tkns);
+            }
+            execvp(inpt_tkns[0],inpt_tkns);
+       }
             
-      } 
     }
-       return 0;
+    return 0;
 }
 
