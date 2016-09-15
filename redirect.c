@@ -12,20 +12,27 @@ int get_rdrct(char* inpt_tkns[], int tkn_num, int start_index)
     /*Returns the index of a rdrct tocken*/
     int i;
     int rdrct_index = -1;
+    if(start_index > tkn_num)
+    {
+        return -1;
+    }
     
     for(i = start_index; i < tkn_num; i++)
     {
                if( strcmp(inpt_tkns[i],"<") == 0 )
                {
                    rdrct_index = i;
+                   break;
                }
                else if( strcmp(inpt_tkns[i],">") == 0 )
                {
                    rdrct_index = i;
+                   break;
                }
                else if( strcmp(inpt_tkns[i],"2>") == 0 )
                {
                    rdrct_index = i;
+                   break;
                }
      }
      return rdrct_index; 
