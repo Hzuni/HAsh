@@ -25,7 +25,7 @@ int job_cnt = 0;
 int job_pgroup[2000];
 char* doneJobs;
 int current_job = -1;
-int rdrctIndices;
+int rdrctIndices[20];
 int rdrctCnt;
 
 
@@ -92,10 +92,9 @@ int main(int argc, const char* argv[])
        signal(SIGTSTP,yash_sig_tstp);
      
        int tkn_indx = 0;
-       int svd_tkn_indx;
        char* file_name;
 
-       int i;
+       int i[20];
        char* inpt_str = malloc(2000);
               
        char* tkn_ptr;   
@@ -130,21 +129,13 @@ int main(int argc, const char* argv[])
        rdrctCnt = 0;
        pipe_i = find_pipes(inpt_tkns,tkn_num,tkn_indx);
        
-       while((rdrct_i = get_rdrct(inpt_tkns,tkn_num,rdct_i)) != -1)
+       while((rdrct_i = get_rdrct(inpt_tkns,tkn_num,rdrct_i)) != -1)
        {
            rdrctIndices[rdrctCnt] = rdrct_i;
            rdrctCnt+=1;
            rdrct_i +=1;
        }
 
-
-       
-       if(rdrct_i != -1)
-       {
-           rdrct_t = rdrct_type(inpt_tkns,rdrct_i);
-           file_name = inpt_tkns[(rdrct_i + 1)];
-           build_rdrct_args(rdrct_i,args,inpt_tkns,svd_tkn_indx);
-       }
 
        if(pipe_i != -1)
        {
@@ -153,7 +144,7 @@ int main(int argc, const char* argv[])
                perror("pipe");
                exit(-1);
            }
-           build_pipe_args(pipel_args,piper_args,svd_tkn_indx,pipe_i,tkn_num,inpt_tkns);
+           build_pipe_args(pipel_args,piper_args,0,pipe_i,tkn_num,inpt_tkns);
           
        }
        
@@ -319,9 +310,16 @@ int main(int argc, const char* argv[])
                     execvp(pipel_args[0], pipel_args);
                 }
             }
-            if(rdrct_i != -1)
+            else if(rdrctCnt > 0)
             {
-                handle_rdrct(file_name, rdrct_t);
+                int j;
+                build_rdrct_args(rdrctIndices[0],args,inpt_tkns,0);
+                for(j = 0; j < rdrctCnt;j++)
+                {
+                    file_name = inpt_tkns[(rdrctIndices[j] +1)];
+                    rdrct_t = rdrct_type(inpt_tkns,rdrctIndices[j]);
+                    handle_rdrct(file_name, rdrct_t);
+                }
                 execvp(args[0], args);
             }
             if(strcmp(inpt_tkns[tkn_num - 1],"&") == 0)
