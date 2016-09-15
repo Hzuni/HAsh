@@ -302,9 +302,20 @@ int main(int argc, const char* argv[])
             {
                 close(pipefd[0]);
                 dup2(pipefd[1],STDOUT_FILENO);
-                if((rdrct_i != -1) && rdrct_i < pipe_i)
+
+
+                if((rdrctCnt > 0) && rdrctIndices[0] < pipe_i)
                 {
-                    handle_rdrct(file_name,rdrct_t);
+                    
+                    build_rdrct_args(rdrctIndices[0],args,inpt_tkns,0);
+                    int rdrct_j = 0;
+                    while(rdrct_j < rdrctCnt && rdrctIndices[rdrct_j] < pipe_i)
+                    {
+                        file_name = inpt_tkns[(rdrctIndices[rdrct_j] + 1)];
+                        rdrct_t = rdrct_type(inpt_tkns,rdrctIndices[rdrct_t]);
+                        handle_rdrct(file_name,rdrct_t);
+                        rdrct_j+=1;
+                    }
                     execvp(args[0], args);
                 } else {
                     execvp(pipel_args[0], pipel_args);
