@@ -25,6 +25,8 @@ int job_cnt = 0;
 int job_pgroup[2000];
 char* doneJobs;
 int current_job = -1;
+int rdrctIndices;
+int rdrctCnt;
 
 
 static void sig_int(int signo)
@@ -124,9 +126,18 @@ int main(int argc, const char* argv[])
        
        /*Build args and vars for redirection operation*/
 
-       rdrct_i = get_rdrct(inpt_tkns,tkn_num,tkn_indx);
-       svd_tkn_indx = tkn_indx;
+       rdrct_i = 0;
+       rdrctCnt = 0;
        pipe_i = find_pipes(inpt_tkns,tkn_num,tkn_indx);
+       
+       while((rdrct_i = get_rdrct(inpt_tkns,tkn_num,rdct_i)) != -1)
+       {
+           rdrctIndices[rdrctCnt] = rdrct_i;
+           rdrctCnt+=1;
+           rdrct_i +=1;
+       }
+
+
        
        if(rdrct_i != -1)
        {
