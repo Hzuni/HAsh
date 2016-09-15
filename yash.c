@@ -188,8 +188,6 @@ int main(int argc, const char* argv[])
           continue;
       }
 
-      //if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
-          //printf("signal(SIGTSTP) error");
                     
 
       /*Creating a new process for the entered line*/
@@ -255,7 +253,35 @@ int main(int argc, const char* argv[])
                    setpgid(0,pid_ch1);
                    close(pipefd[1]); // Closing write end of pipe
                    dup2(pipefd[0],STDIN_FILENO);
-                   execvp(piper_args[0], piper_args);  
+                   char* rdr_args[2000];
+                   int frst_rdrct = -1;
+
+                   if(rdrctCnt > 0){ 
+                       int k;
+                       int hndled_rdrcts = 0;
+                       for(k = 0; k < rdrctCnt; k++)
+                       {
+                           if(rdrctIndices[k] > pipe_i)
+                           {
+                               if(frst_rdrct == -1){ frst_rdrct = rdrctIndices[k];}
+                               file_name = inpt_tkns[rdrctIndices[k] + 1];
+                               rdrct_t = rdrct_type(inpt_tkns,rdrctIndices[k]);
+                               handle_rdrct(file_name,rdrct_t);
+                           } 
+                           
+                       }
+                       if(frst_rdrct != -1 )
+                       {
+                          build_rdrct_args(frst_rdrct,rdr_args,inpt_tkns,(pipe_i+1));
+                          execvp(rdr_args[0],rdr_args);
+                       } else
+                       {
+                           /*Means there's redirects but none after the pipe*/
+                           execvp(piper_args[0],piper_args);
+                       }
+                   } else{
+                       execvp(piper_args[0], piper_args);  
+                   }
                }
            } else if(strcmp(inpt_tkns[(tkn_num - 1)],"&") == 0)
            {
