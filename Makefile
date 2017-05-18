@@ -1,2 +1,5 @@
-yash: yash.c
-	gcc -g yash.c redirect.c pipes.c jobs.c -o yash
+hash: hash.c
+	gcc -g hash.c redirect.c pipes.c jobs.c builtins.c -o hash
+
+debug:
+	gdb hash
