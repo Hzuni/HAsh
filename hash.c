@@ -91,14 +91,14 @@ int main(int argc, const char *argv[])
 
     // Registers process SIGCHLD
     struct sigaction sa;
-    char *unmod_inpt_str, *crnt_wd;
+    char *unmod_inpt_str, *crnt_wd, *crnt_usr;
     sa.sa_handler = &handle_sigchld;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
 
     if (sigaction(SIGCHLD, &sa, 0) == -1) {
-	perror(0);
-	exit(1);
+	    perror(0);
+	    exit(1);
     }
 
     while (1) {
@@ -114,7 +114,9 @@ int main(int argc, const char *argv[])
         int tkn_num = 0;
         
         crnt_wd = getcwd(NULL, 1024);
-        printf("%s :D ", crnt_wd);
+        crnt_usr = getenv("LOGNAME");
+        
+        printf("%s (%s) > ", crnt_usr,  crnt_wd);
 
         if (fgets(inpt_str, 2000, stdin) == NULL) {
             exit(0);
